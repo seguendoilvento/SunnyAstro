@@ -1,0 +1,112 @@
+#!/bin/bash
+
+CONFIG_FILE="/etc/github-packages.conf"
+LOG_FILE="/var/log/github-manager.log"
+
+# Colori
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+log() {
+    echo -e "${BLUE}[$(date '+%Y-%m-%d %H:%M:%S')]${NC} $1" | tee -a "$LOG_FILE"
+}
+
+list_packages() {
+    echo "Available GitHub packages:"
+    echo "=========================="
+    
+    # Da configurazione interna
+    declare -A packages=(
+        ["fzf"]="https://github.com/junegunn/fzf - Fuzzy finder"
+        ["bat"]="https://github.com/sharkdp/bat - Cat clone with wings"
+        ["ripgrep"]="https://github.com/BurntSushi/ripgrep - Better grep"
+        ["lazygit"]="https://github.com/jesseduffield/lazygit - Git TUI"
+        ["micro"]="https://github.com/zyedidia/micro - Modern terminal editor"
+    )
+    
+    for pkg in "${!packages[@]}"; do
+        echo "  $pkg - ${packages[$pkg]}"
+    done
+    
+    echo ""
+    echo "Installed packages:"
+    echo "==================="
+    for pkg in "${!packages[@]}"; do
+        if command -v "$pkg" &> /dev/null; then
+            echo "  ✓ $pkg"
+        fi
+    done
+}
+
+update_packages() {
+    log "Updating GitHub packages..."
+    
+    # Update AUR packages
+    if command -v yay &> /dev/null; then
+        yay -Syu --aur --noconfirm
+    fi
+    
+    # Update git-based installations
+    for dir in /opt/github/*/; do
+        if [ -d "$dir/.git" ]; then
+            cd "$dir"
+            git pull origin main
+            log "Updated $(basename "$dir")"
+        fi
+    done
+}
+
+install_package() {
+    local pkg="$1"
+    
+    case "$pkg" in
+        "fzf")
+            /root/install-github.sh fzf
+            ;;
+        "bat"|"ripgrep"|"fd"|"delta")
+            /root/install-github.sh "$pkg"
+            ;;
+        *)
+            echo "Unknown package: $pkg"
+            echo "Use 'list' to see available packages"
+            ;;
+    esac
+}
+
+# Main menu
+case "${1:-help}" in
+    "list")
+        list_packages
+        ;;
+    "update")
+        update_packages
+        ;;
+    "install")
+        if [ -z "$2" ]; then
+            echo "Usage: $0 install <package>"
+            exit 1
+        fi
+        install_package "$2"
+        ;;
+    "setup")
+        /root/install-github.sh all
+        ;;
+    "desktop")
+        /root/setup-desktop.sh "${2:-i3}"
+        ;;
+    "help"|*)
+        echo "GitHub Package Manager for Arch Linux Live"
+        echo "=========================================="
+        echo ""
+        echo "Commands:"
+        echo "  list     - List available GitHub packages"
+        echo "  install  - Install specific package"
+        echo "  update   - Update all packages"
+        echo "  setup    - Full setup (all packages + AUR)"
+        echo "  desktop  - Install desktop environment"
+        echo "  help     - Show this help"
+        ;;
+esac
+
