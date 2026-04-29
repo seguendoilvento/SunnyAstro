@@ -1,0 +1,4 @@
+Server = 
+[astronomy]
+SigLevel = Optional TrustAll
+Server = file:///Repo_for_Asronomy/x86_64 
